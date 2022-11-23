@@ -7,7 +7,7 @@ a.k.a. A BARD RAIN'S A-GONNA FALL
 
 # Imports
 
-from typing import Optional, TextIO  # Specific annotations
+from typing import Optional, TextIO, Set  # Specific annotations
 
 from math import ceil  # For stats
 
@@ -34,8 +34,8 @@ songs_type = dict[str, set[str]]
 parties_type = list[set[str]]
 
 villagers = {}
-bards = ()
 songs = {}
+bards = set()
 parties = []
 bards_string = ""
 
@@ -51,7 +51,6 @@ def read_input(f: TextIO, ) -> tuple[villagers_type, bards_type, songs_type, par
 
     """
 
-    global bards
     n = f.readline().strip()
     i = 0
     while i < 1:
@@ -60,18 +59,18 @@ def read_input(f: TextIO, ) -> tuple[villagers_type, bards_type, songs_type, par
             while n.strip():
                 n = f.readline().strip()
                 if "*" in n:
-                    bard_list.append(n.replace("*",""))
-                    bards = set(bard_list)
+                    bards.add(n.replace("*", ""))
                 elif "*" not in n:
-                    villagers[n] = ""
+                    villagers[n] = set()
             del villagers[""]
 
         n = f.readline().strip()
         if "SONGS" in n:
             while n.strip():
                 n = f.readline().strip()
-                songs[n] = ""
+                songs[n] = bards
             del songs[""]
+
 
         n = f.readline().strip()
         if "PARTIES" in n:
@@ -84,8 +83,11 @@ def read_input(f: TextIO, ) -> tuple[villagers_type, bards_type, songs_type, par
 
         i = i + 1
 
+    result = (villagers, bards, songs, parties)
 
-    return villagers, bards, songs, parties
+    return result
+
+
 # Party functions
 # We highly recommend adding helper functions here!
 
@@ -95,69 +97,30 @@ def sing_at_party(
     """
     A bard sings if present, otherwise the villagers sing.
     """
-    bard_check = []
-    for i in bards:
-        bard_check.append(i.replace("*", ""))
-    bard_set = set(bard_check)
+    if bool(bards | party):
+        party_song_set = set()
+        a = party - bards
+        for i in a:
+            for j in villagers[i]:
+                party_song_set.add(j)
+        final_set_new = set(songs.keys()) - party_song_set
+        final_set_old = sorted(final_set_new)
+        l = list(villagers.keys())
+        for i in l:
+            if i in a:
+                villagers[i].add(final_set_old[0])
+                songs[final_set_old[0]].add(i)
+    else:
+        common_set = set()
+        for c in villagers:
+            for j in villagers[c]:
+                common_set.add(j)
+        for v in villagers:
+            villagers[v] = villagers[v] | common_set
+        for s in songs:
+            if songs[s] in common_set:
+                songs[s] = songs[s] | party
 
-    count = 0
-
-    for i in party:
-        if i in bard_set:
-            count = count + 1
-
-    # This means that the Bard is present in this party.
-    if count > 0:
-        party1_list = []
-        for i in party:
-            party1_list.append(i)
-        party1_set = set(party1_list) - bard_set  # The people who are not bards in the party
-        list3 = []
-        for i in party1_set:
-            list1 = []
-            if "," in villagers[i]:
-                list1 = villagers[i].split(", ")
-                for j in list1:
-                    list3.append(j.strip())
-
-            else:
-                list3.append((villagers[i]).strip())
-
-        final_set = set(list(songs.keys())) - set(list3)
-
-        if final_set != set():
-
-            for i in party1_set:
-
-                if villagers[i] == "":
-                    villagers[i] += sorted(final_set)[0]
-
-                else:
-                    villagers[i] += ', ' + sorted(final_set)[0]
-                    songs[sorted(final_set)[0]] += i
-
-
-
-
-    # This means that there is no bard present in the party.
-    elif count == 0:
-        list_5 = []
-        for i in party:
-
-            for j in villagers[i].split(','):
-                if j != '':
-                    list_5.append(j.strip())
-
-        final_set_1 = set(list_5)
-        for i in villagers:
-            villagers[i] = ""
-
-        for i in party:
-            for j in final_set_1:
-                if villagers[i] == "":
-                    villagers[i] += j
-                else:
-                    villagers[i] += ', ' + j
 
 def update_bards_after_party(
         villagers: villagers_type, bards: bards_type, songs: songs_type, party: set[str]
@@ -166,17 +129,12 @@ def update_bards_after_party(
     Promote attendees who have learned enough songs to bards,
     iff there is another bard present at the party.
     """
-    if sing_at_party(villagers, bards, songs, party) == bards:
-        for i in villagers.values():
-            list2 = []
-            list2 = i.replace(",", "").split()
-            count = 0
-            for j in list2:
-                count = count + 1
-                if count >= 10:
-                    name = list(villagers.keys())[list(villagers.values()).index(i)]
-                    bards.add(name + "*")
-
+    if bool(bards & party):
+        temp = party - bards
+        for j in temp:
+            if len(villagers.get(j)) >= BARD_THRESHOLD:
+                bards.add(j)
+                del villagers[j]
 
 # Stats functions
 
@@ -192,7 +150,7 @@ def unheard_songs(
     """
     list1 = []
     for i in villagers.values():
-        for j in i.split(","):
+        for j in i:
             list1.append(j.strip())
 
     songs_set = set(list1)
@@ -200,6 +158,7 @@ def unheard_songs(
     final_set = set(songs.keys()) - songs_set
 
     return final_set
+
 
 def billboard_top(
         villagers: villagers_type,
@@ -211,17 +170,24 @@ def billboard_top(
     Return a list of the BILLBOARD_N most popular songs by number of people
     who know them, in descending order. Break ties alphabetically.
     """
+    final_list = []
     list2 = []
-    for i in songs.keys():
-        if len(set(list2)) < 10:
-            list2.append(i)
-        else:
-            
+    for i in songs:
+        list2.append(str(len(songs[i])*-1) + " " + i)
+    list2.sort()
+    for i in range(len(list2)):
+        a = list2[i].split(" ")
+        a.pop(0)
+        list2[i] = " ".join(a)
 
-    Billboard = sorted(list2)
+    if len(list2) >= BILLBOARD_N:
+        for i in range(BILLBOARD_N):
+            final_list.append(list2[i])
 
-    return Billboard
+    else:
+        final_list = list2
 
+    return final_list
 
 
 def all_bards(
@@ -231,6 +197,8 @@ def all_bards(
         parties: parties_type,
 ) -> set[str]:
     """Return the set of the village's bards."""
+    for i in parties:
+        update_bards_after_party(villagers, bards, songs, i)
     return bards
 
 
@@ -255,9 +223,9 @@ def average_attendees(
         sum = sum + int(i)
 
     if (sum % len(list12)) > 0:
-        return sum//len(list12) + 1
+        return sum // len(list12) + 1
     else:
-        return sum//len(list12)
+        return sum // len(list12)
 
 
 # Main  process
@@ -270,12 +238,14 @@ def run(filename: str) -> dict[str, object]:
 
     filename is the name of an input file.
     """
-    file = open('%s' % filename,'r')
+
+    file = open('%s' % filename, 'r')
     read_input(file)
+
     for i in parties:
         sing_at_party(villagers, bards, songs, i)
 
-    return {"unheard_songs":unheard_songs(villagers, bards, songs, parties),
+    return {"unheard_songs": unheard_songs(villagers, bards, songs, parties),
             "billboard_top": billboard_top(villagers, bards, songs, parties),
             "all_bards": all_bards(villagers, bards, songs, parties),
             "average_attendees": average_attendees(villagers, bards, songs, parties)}
