@@ -4,23 +4,13 @@ iq_heroes = input().split()
 strength_heroes = input().split()
 number_villain = int(input())
 
-list = []
-
-#creating a list of iq numbers and hero names combined
+#creating a list of stats and hero names combined
 iq_list = []
-for i in range(number_heroes):
-    iq_list.append([iq_heroes[i],names_heroes[i]])
-
-
-#creating a list of strength numbers and hero names combined
 strength_list = []
-for i in range(number_heroes):
-    strength_list.append([strength_heroes[i],names_heroes[i]])
-
-
-#creating a list of (strength numbers + iq numbers) and hero names combined
 combine_list = []
 for i in range(number_heroes):
+    iq_list.append([iq_heroes[i],names_heroes[i]])
+    strength_list.append([strength_heroes[i],names_heroes[i]])
     combine_list.append([str(int(strength_heroes[i]) + int(iq_heroes[i])),names_heroes[i]])
 
 final_list = []
@@ -28,8 +18,6 @@ final_list = []
 for i in range(number_villain):
     list1 = []
     stats_villian = input().split()
-
-
     if int(stats_villian[0]) == 1: #iq villian
 
         for j in range(number_heroes):
@@ -99,6 +87,7 @@ for i in range(number_villain):
 
             sorted_final_list = sorted(list1_final)
             final_list.append(sorted_final_list[0])
+
 
 for i in final_list:
     print(i,end=" ")
